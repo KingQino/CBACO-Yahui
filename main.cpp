@@ -10,7 +10,7 @@
 #include "BACO2.h"
 #include "stats.h"
 
-#define MAX_TRIALS 20
+#define MAX_TRIALS 10
 
 using namespace std;
 
