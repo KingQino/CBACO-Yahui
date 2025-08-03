@@ -1,6 +1,7 @@
 #include "BACO2.h"
 
-BACO2::BACO2(Case* instance, int seed) {
+BACO2::BACO2(Case* instance, int seed, int stp) {
+	this->stopCriteria = stp;
 	this->instance = instance;
 	this->cdnumber = instance->depotNumber + instance->customerNumber;
 	this->antno = this->cdnumber;
@@ -65,12 +66,17 @@ BACO2::BACO2(Case* instance, int seed) {
     string directoryPath = statsPath + "/" + "baco" + "/" + instanceName + "/" + to_string(seed);
     create_directories_if_not_exists(directoryPath);
 	stringstream ss;
-	ss << instance->ID << "." << seed << ".BACO2.result.txt";
+	ss << "evols." << instanceName << ".csv";
 	string filename;
 	ss >> filename;
 	ss.clear();
 	result.open(directoryPath + "/" + filename);
-	ss << instance->ID << "." << seed << ".BACO2.solution.txt";
+	if (stopCriteria == 0) {
+		result << "obj,evals,time" << endl;
+	} else if (stopCriteria == 1) {
+		result << "obj,time" << endl;
+	}
+	ss << "solution." << instanceName << ".txt";
 	string sofilename;
 	ss >> sofilename;
 	ss.clear();
@@ -102,25 +108,48 @@ BACO2::~BACO2() {
 }
 
 void BACO2::run() {
-    int v;
-    if (cdnumber <= 101) {
-        v = 1;
-    } else if (cdnumber <= 916) {
-        v = 2;
-    } else {
-        v = 3;
-    }
-	long timelimited = v * (cdnumber + instance->stationNumber) * 36;
-	long timeused = 0;
-	while (timeused < timelimited)//(usedFes < MAXFES)
-	{
-		buildSolutionsByCL();
-		evaluateAndUpdatePher();
-        endTime = std::chrono::high_resolution_clock::now();
-        timeused = std::chrono::duration_cast<std::chrono::seconds>(endTime - staTime).count();
-        result << usedFes << ',' << gbestf  << "," << timeused << endl;
-    }
-	sofile << fixed << setprecision(8) << gbestf << endl;
+	if (stopCriteria == 0) {
+		while (instance->getEvals() < instance->maxEvals) {
+			buildSolutionsByCL();
+			evaluateAndUpdatePher();
+			endTime = std::chrono::high_resolution_clock::now();
+			double timeused = std::chrono::duration<double>(endTime - staTime).count();
+			// result << usedFes << ',' << gbestf  << "," << timeused << endl;
+			std::ostringstream gbestStr, evalStr, timeStr;
+			gbestStr << std::fixed << std::setprecision(2) << gbestf;
+			evalStr  << std::fixed << std::setprecision(2) << instance->getEvals();
+			timeStr  << std::fixed << std::setprecision(3) << timeused;
+
+			result << gbestStr.str() << "," << evalStr.str() << "," << timeStr.str() << endl;
+		}
+	} else if (stopCriteria == 1) {
+		const int v = (cdnumber <= 101) ? 1 : (cdnumber <= 916) ? 2 : 3;
+		double timelimited = v * (cdnumber + instance->stationNumber) * 36;
+		double timeused = 0.0;
+		double lastLogTime = 0.0;
+
+		while (timeused < timelimited)//(usedFes < MAXFES)
+		{
+			buildSolutionsByCL();
+			evaluateAndUpdatePher();
+			endTime = std::chrono::high_resolution_clock::now();
+			timeused = std::chrono::duration<double>(endTime - staTime).count();
+			// result << usedFes << ',' << gbestf  << "," << timeused << endl;
+			if (timeused - lastLogTime >= 60.0 || lastLogTime == 0) {
+				std::ostringstream gbestStr, timeStr;
+				gbestStr << std::fixed << std::setprecision(2) << gbestf;
+				timeStr << std::fixed << std::setprecision(1) << timeused;
+				result << gbestStr.str() << "," << timeStr.str() << endl;
+				lastLogTime = timeused;
+			}
+		}
+		std::ostringstream gbestStr, timeStr;
+		gbestStr << std::fixed << std::setprecision(2) << gbestf;
+		timeStr  << std::fixed << std::setprecision(1) << timeused;
+
+		result << gbestStr.str() << "," << timeStr.str() << endl;
+	}
+	sofile << fixed << setprecision(3) << gbestf << endl;
 	for (auto e : bestSolution) {
 		sofile << e << ',';
 	}
@@ -254,7 +283,7 @@ void BACO2::buildSolutionsByCL() {
 			}
 			memset(prob, 0, sizeof(double) * cdnumber);
 			for (int j = 0; j < (int)tobechosen.size(); j++) {
-				prob[j] = pher[lastone][tobechosen[j]] * (1.0 / instance->distances[lastone][tobechosen[j]]) * (1.0 / instance->distances[lastone][tobechosen[j]]);
+				prob[j] = pher[lastone][tobechosen[j]] * (1.0 / instance->getDistance(lastone, tobechosen[j])) * (1.0 / instance->getDistance(lastone, tobechosen[j]));
 			}
 			for (int j = 1; j < (int)tobechosen.size(); j++) {
 				prob[j] += prob[j - 1];
@@ -307,7 +336,7 @@ void BACO2::buildSolutionsByAll() {
 			int lastone = ants[i][counter - 1];
 			memset(prob, 0, sizeof(double) * cdnumber);
 			for (int j = 0; j < (int)alltemp.size(); j++) {
-				prob[j] = pher[lastone][alltemp[j]] * (1.0 / instance->distances[lastone][alltemp[j]]) * (1.0 / instance->distances[lastone][alltemp[j]]);
+				prob[j] = pher[lastone][alltemp[j]] * (1.0 / instance->getDistance(lastone, alltemp[j])) * (1.0 / instance->getDistance(lastone, alltemp[j]));
 			}
 			for (int j = 1; j < (int)alltemp.size(); j++) {
 				prob[j] += prob[j - 1];

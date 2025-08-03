@@ -19,7 +19,7 @@ using namespace std;
 
 class BACO2 : public StatsInterface{
 public:
-	BACO2(Case*, int);
+	BACO2(Case*, int, int);
 	~BACO2();
 	void run();
 	void buildSolutionsByCL();
@@ -27,6 +27,7 @@ public:
 	void evaluateAndUpdatePher();
 	pair<vector<int>, double> interpretACircleVec(int*);
 
+	int stopCriteria;
 	Case* instance;
 	ofstream result;
 	ofstream sofile;

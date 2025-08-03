@@ -19,7 +19,7 @@ using namespace std;
 class CACO : public StatsInterface{
 public:
     //for representation 1 represents order-split, 2 represents direct with local search
-    CACO(Case* instance, int seed, int isCan, int isRA, int representation, int timer, double afr);
+    CACO(Case* instance, int seed, int stp, int isCan, int isRA, int representation, int timer, double afr);
     ~CACO();
     void run();
     //traditional representations
@@ -47,6 +47,7 @@ public:
     void generateASolutionGreedy(Ant*);
     double fixOneSolution(Ant*);
 
+    int stopCriteria;
     Case* instance;
     ofstream result;
     ofstream sofile;

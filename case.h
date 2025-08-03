@@ -13,6 +13,8 @@
 
 using namespace std;
 
+#define MAX_EVALUAION_FACTOR 25'000;
+
 class Case {
 public:
 	Case(string, int);
@@ -33,6 +35,7 @@ public:
 	vector<int> findTheNonDominatedStations(int, int);
 	vector<set<int>> getCandiList(int candino);
 	vector<vector<int>> getCandiList2(int candino);
+	double getEvals() const;
 
 	int depotNumber;
 	int customerNumber;
@@ -53,4 +56,8 @@ public:
 	bool posflag;
 	int ID;
 	vector<vector<int>> candidatelist;
+
+	int actualProblemSize;
+	double evals;
+	double maxEvals;
 };

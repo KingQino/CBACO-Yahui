@@ -1,6 +1,7 @@
 #include "CACO.h"
 
-CACO::CACO(Case* instance, int seed, int isCan, int isRA, int representation, int timer, double afr) {
+CACO::CACO(Case* instance, int seed, int stp, int isCan, int isRA, int representation, int timer, double afr) {
+	this->stopCriteria = stp;
     this->instance = instance;
     this->isCan = isCan;
     this->isRA = isRA;
@@ -64,12 +65,19 @@ CACO::CACO(Case* instance, int seed, int isCan, int isRA, int representation, in
     }
     create_directories_if_not_exists(directoryPath);
     stringstream ss;
-	ss << instance->ID << "." << seed << "." << isCan << "." << isRA << "." << representation << ".CACO_AF" << afr << ".result.txt";
+	// ss << instance->ID << "." << seed << "." << isCan << "." << isRA << "." << representation << ".CACO_AF" << afr << ".result.txt";
+	ss << "evols." << instanceName << ".csv";
 	string filename;
 	ss >> filename;
 	ss.clear();
 	result.open(directoryPath + "/" + filename);
-	ss << instance->ID << "." << seed << "." << isCan << "." << isRA << "." << representation << ".CACO_AF" << afr << ".solution.txt";
+	if (stopCriteria == 0) {
+		result << "obj,evals,time" << endl;
+	} else if (stopCriteria == 1) {
+		result << "obj,time" << endl;
+	}
+	// ss << instance->ID << "." << seed << "." << isCan << "." << isRA << "." << representation << ".CACO_AF" << afr << ".solution.txt";
+	ss << "solution." << instanceName << ".txt";
 	string sofilename;
 	ss >> sofilename;
 	ss.clear();
@@ -111,8 +119,8 @@ void CACO::generateASolutionGreedy(Ant* anant) {
 			double mindis = 999999999;
 			for (int i = 0; i < (int)remain.size(); i++) {
 				if (instance->demand[remain[i]] + loadofroute <= instance->maxC &&
-					instance->distances[lastone][remain[i]] < mindis) {
-					mindis = instance->distances[lastone][remain[i]];
+					instance->getDistance(lastone, remain[i]) < mindis) {
+					mindis = instance->getDistance(lastone, remain[i]);
 					chosenIndex = i;
 				}
 			}
@@ -139,7 +147,7 @@ void CACO::generateASolutionGreedy(Ant* anant) {
     anant->fit = 0;
     for (int i = 0; i < anant->routeNum; i++) {
         for (int j = 0; j < anant->nodeNum[i] - 1; j++) {
-            anant->fit += instance->distances[anant->route[i][j]][anant->route[i][j + 1]];
+            anant->fit += instance->getDistance(anant->route[i][j], anant->route[i][j + 1]);
         }
     }
 }
@@ -158,50 +166,79 @@ CACO::~CACO() {
 }
 
 void CACO::run() {
-    long timelimited = (cdnumber + instance->stationNumber) * this->timerate;
-    long timeused = 0;
+	double timelimited = (cdnumber + instance->stationNumber) * this->timerate;
+	double timeused = 0;
+	double lastLogTime = 0.0;
 	int generationNum = 0;
-    while (timeused < timelimited)
-//    while (generationNum < 10000)
-	{
-		generationNum++;
-		if (representation != 1) {
-			if (isCan == 1) {
-				buildSolutionsFromCandi();
+
+	// 0 for evals, 1 for time
+	if (stopCriteria == 0) {
+		while (instance->getEvals() < instance->maxEvals) {
+			generationNum++;
+
+			if (representation != 1) {
+				if (isCan == 1) buildSolutionsFromCandi();
+				else buildSolutions();
+
+				if (isRA == 1) evaluateSomeForOnlyFixing0();
+				else evaluateAll();
+			} else {
+				if (isCan == 1) buildSolutionsFromCandi2();
+				else buildSolutions2();
+
+				if (isRA == 1) evaluateSomeForOnlyFixing1();
+				else evaluateAll2();
 			}
-			else {
-				buildSolutions();
+
+			usedFes += antno;
+
+			endTime = std::chrono::high_resolution_clock::now();
+			timeused = std::chrono::duration<double>(endTime - staTime).count();
+
+			std::ostringstream bestFitStr, evalStr, timeStr;
+			bestFitStr << std::fixed << std::setprecision(2) << bestSolution->fit;
+			evalStr << std::fixed << std::setprecision(2) << instance->getEvals();
+			timeStr << std::fixed << std::setprecision(3) << timeused;
+			result << bestFitStr.str() << "," << evalStr.str() << "," << timeStr.str() << endl;
+		}
+	} else if (stopCriteria == 1) {
+		while (timeused < timelimited) {
+			generationNum++;
+
+			if (representation != 1) {
+				if (isCan == 1) buildSolutionsFromCandi();
+				else buildSolutions();
+
+				if (isRA == 1) evaluateSomeForOnlyFixing0();
+				else evaluateAll();
+			} else {
+				if (isCan == 1) buildSolutionsFromCandi2();
+				else buildSolutions2();
+
+				if (isRA == 1) evaluateSomeForOnlyFixing1();
+				else evaluateAll2();
 			}
-			if (isRA == 1) {
-				//evaluateSome();
-				evaluateSomeForOnlyFixing0();
-			}
-			else {
-				evaluateAll();
+
+			usedFes += antno;
+
+			endTime = std::chrono::high_resolution_clock::now();
+			timeused = std::chrono::duration<double>(endTime - staTime).count();
+			// result << usedFes << ',' << refined << ',' << repaired << ',' << timeused << ',' << bestSolution->fit << endl;
+			if (timeused - lastLogTime >= 60.0 || lastLogTime == 0) {
+				std::ostringstream bestFitStr, timeStr;
+				bestFitStr << std::fixed << std::setprecision(2) << bestSolution->fit;
+				timeStr << std::fixed << std::setprecision(1) << timeused;
+				result << bestFitStr.str() << "," << timeStr.str() << endl;
+				lastLogTime = timeused;
 			}
 		}
-		else {
-			if (isCan == 1) {
-				buildSolutionsFromCandi2();
-			}
-			else {
-				buildSolutions2();
-			}
-			if (isRA == 1) {
-				//evaluateSome2();
-				evaluateSomeForOnlyFixing1();
-			}
-			else {
-				evaluateAll2();
-			}
-		}
-        
-        usedFes += antno;
-        endTime = std::chrono::high_resolution_clock::now();
-        timeused = std::chrono::duration_cast<std::chrono::seconds>(endTime - staTime).count();
-		result << usedFes << ',' << refined << ',' << repaired << ',' << timeused << ',' << bestSolution->fit << endl;
-    }
-    sofile << fixed << setprecision(8) << bestSolution->fit << endl;
+		std::ostringstream bestFitStr, timeStr;
+		bestFitStr << std::fixed << std::setprecision(2) << bestSolution->fit;
+		timeStr << std::fixed << std::setprecision(1) << timeused;
+		result << bestFitStr.str() << "," << timeStr.str() << endl;
+	}
+
+    sofile << fixed << setprecision(3) << bestSolution->fit << endl;
 	for (int i = 0; i < bestSolution->routeNum; i++) {
 		for (int j = 0; j < bestSolution->nodeNum[i]; j++) {
 			sofile << bestSolution->route[i][j] << ',';
@@ -245,7 +282,7 @@ void CACO::buildSolutions() {
 				}
 				int lastone = ants[i]->route[routeindex][ants[i]->nodeNum[routeindex] - 1];
 				for (int j = 0; j < choinum; j++) {
-					double heuinfor = (1.0 / instance->distances[lastone][choices[j]]) * (1.0 / instance->distances[lastone][choices[j]]);
+					double heuinfor = (1.0 / instance->getDistance(lastone, choices[j])) * (1.0 / instance->getDistance(lastone, choices[j]));
 					prob[j] = pher[lastone][choices[j]] * heuinfor;
 				}
 				for (int j = 1; j < choinum; j++) {
@@ -337,7 +374,7 @@ void CACO::buildSolutionsFromCandi() {
 				}
 				//roullet wheel selection
 				for (int j = 0; j < choinum; j++) {
-					prob[j] = pher[lastone][choices[j]] * (1.0 / instance->distances[lastone][choices[j]]) * (1.0 / instance->distances[lastone][choices[j]]);
+					prob[j] = pher[lastone][choices[j]] * (1.0 / instance->getDistance(lastone, choices[j])) * (1.0 / instance->getDistance(lastone, choices[j]));
 				}
 				for (int j = 1; j < choinum; j++) {
 					prob[j] += prob[j - 1];
@@ -381,7 +418,7 @@ void CACO::evaluateAll() {
         ants[i]->fit = 0;
         for (int j = 0; j < ants[i]->routeNum; j++) {
             for (int k = 0; k < ants[i]->nodeNum[j] - 1; k++) {
-                ants[i]->fit += instance->distances[ants[i]->route[j][k]][ants[i]->route[j][k + 1]];
+                ants[i]->fit += instance->getDistance(ants[i]->route[j][k], ants[i]->route[j][k + 1]);
             }
         }
         ants[i]->fit = round(ants[i]->fit * 1000000.0) / 1000000.0;
@@ -455,7 +492,7 @@ void CACO::evaluateSome() {
         ants[i]->fit = 0;
         for (int j = 0; j < ants[i]->routeNum; j++) {
             for (int k = 0; k < ants[i]->nodeNum[j] - 1; k++) {
-                ants[i]->fit += instance->distances[ants[i]->route[j][k]][ants[i]->route[j][k + 1]];
+                ants[i]->fit += instance->getDistance(ants[i]->route[j][k], ants[i]->route[j][k + 1]);
             }
         }
         ants[i]->fit = round(ants[i]->fit * 1000000.0) / 1000000.0;
@@ -616,7 +653,7 @@ void CACO::buildSolutions2() {
 			int lastone = ants[i]->circle[counter - 1];
 			memset(prob, 0, sizeof(double) * cdnumber);
 			for (int j = 0; j < (int)alltemp.size(); j++) {
-				double heu1 = 1.0 / instance->distances[lastone][alltemp[j]];
+				double heu1 = 1.0 / instance->getDistance(lastone, alltemp[j]);
 				prob[j] = pher[lastone][alltemp[j]] * pow(heu1, 2.0);
 			}
 			for (int j = 1; j < (int)alltemp.size(); j++) {
@@ -699,7 +736,7 @@ void CACO::buildSolutionsFromCandi2() {
 			}
 			memset(prob, 0, sizeof(double) * cdnumber);
 			for (int j = 0; j < length; j++) {
-				double heu1 = 1.0 / instance->distances[lastone][tobechosen[j]];
+				double heu1 = 1.0 / instance->getDistance(lastone, tobechosen[j]);
 				prob[j] = pher[lastone][tobechosen[j]] * pow(heu1, 2.0);
 			}
 			for (int j = 1; j < length; j++) {
@@ -946,7 +983,7 @@ void CACO::evaluateSomeForOnlyLocalSearch0() {
         ants[i]->fit = 0;
         for (int j = 0; j < ants[i]->routeNum; j++) {
             for (int k = 0; k < ants[i]->nodeNum[j] - 1; k++) {
-                ants[i]->fit += instance->distances[ants[i]->route[j][k]][ants[i]->route[j][k + 1]];
+                ants[i]->fit += instance->getDistance(ants[i]->route[j][k], ants[i]->route[j][k + 1]);
             }
         }
         ants[i]->fit = round(ants[i]->fit * 1000000.0) / 1000000.0;
@@ -1152,7 +1189,7 @@ void CACO::evaluateSomeForOnlyFixing0() {
 		ants[i]->fit = 0;
 		for (int j = 0; j < ants[i]->routeNum; j++) {
             for (int k = 0; k < ants[i]->nodeNum[j] - 1; k++) {
-                ants[i]->fit += instance->distances[ants[i]->route[j][k]][ants[i]->route[j][k + 1]];
+                ants[i]->fit += instance->getDistance(ants[i]->route[j][k], ants[i]->route[j][k + 1]);
             }
         }
         ants[i]->fit = round(ants[i]->fit * 1000000.0) / 1000000.0;

@@ -133,6 +133,11 @@ Case::Case(string filename, int ID) {
 	}
 
 	this->candidatelist = getCandiList2(20);
+
+	// customized variables by Yinghao
+	this->actualProblemSize = this->depotNumber + this->customerNumber + this->stationNumber;
+	this->evals = 0.0;
+	this->maxEvals = this->actualProblemSize * MAX_EVALUAION_FACTOR;
 }
 
 vector<vector<int>> Case::getCandiList2(int candino) {
@@ -222,6 +227,8 @@ Case::~Case() {
 }
 
 double Case::getDistance(int i, int j) {
+	this->evals += (1.0 / this->actualProblemSize);
+
 	return this->distances[i][j];
 }
 
@@ -415,4 +422,8 @@ void Case::checkASoluton(string filename) {
 			}
 		}
 	}
+}
+
+double Case::getEvals() const {
+	return this->evals;
 }
