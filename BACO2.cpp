@@ -263,7 +263,7 @@ void BACO2::buildSolutionsByCL() {
 		int curone = 0;
 		int counter = 0;
 		ants[i][counter] = alltemp[curone];
-		memcpy(&alltemp[curone], &alltemp[curone + 1], sizeof(int) * (alllen - curone - 1));
+		memmove(&alltemp[curone], &alltemp[curone + 1], sizeof(int) * (alllen - curone - 1));
 		alllen--;
 		memset(havebeenchoosen, 0, sizeof(int) * cdnumber);
 		havebeenchoosen[ants[i][counter]] = 1;
@@ -308,7 +308,7 @@ void BACO2::buildSolutionsByCL() {
 					break;
 				}
 			}
-			memcpy(&alltemp[erapos], &alltemp[erapos + 1], sizeof(int) * (alllen - erapos - 1));
+			memmove(&alltemp[erapos], &alltemp[erapos + 1], sizeof(int) * (alllen - erapos - 1));
 			alllen--;
 		}
 	}

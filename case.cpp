@@ -1,90 +1,167 @@
 #include "case.h"
 
+#include <stdexcept>
+
 Case::Case(string filename, int ID) {
 	this->ID = ID;
 	this->filename = filename;
-	stringstream ss;
 	this->depotNumber = 1;
 	this->depot = 0;
+	this->customerNumber = 0;
+	this->stationNumber = 0;
+	this->vehicleNumber = 0;
+	this->maxC = 0;
+	this->maxQ = 0;
+	this->conR = 0;
+
 	ifstream infile(filename.c_str());
+	if (!infile.is_open()) {
+		throw runtime_error("Failed to open instance file: " + filename);
+	}
+
+	auto trim = [](const string& text) {
+		const size_t first = text.find_first_not_of(" \t\r\n");
+		if (first == string::npos) {
+			return string();
+		}
+		const size_t last = text.find_last_not_of(" \t\r\n");
+		return text.substr(first, last - first + 1);
+	};
+
+	auto valueAfterColon = [](const string& text) {
+		const size_t colon = text.find(':');
+		if (colon == string::npos) {
+			return string();
+		}
+		return text.substr(colon + 1);
+	};
+
+	vector<pair<int, pair<double, double>>> coordinateEntries;
+	vector<pair<int, double>> demandEntries;
+	int declaredDimension = 0;
+	int declaredStations = 0;
+	int maxCoordinateIndex = 0;
+	int maxDemandIndex = 0;
+	bool readingCoordinates = false;
+	bool readingDemand = false;
+
 	char line[250];
-	while (infile.getline(line, 249))
-	{
-		string templine(line);
+	while (infile.getline(line, 249)) {
+		string templine = trim(line);
+		if (templine.empty()) {
+			continue;
+		}
+
+		if (readingCoordinates) {
+			if (templine.find("DEMAND_SECTION") != string::npos) {
+				readingCoordinates = false;
+				readingDemand = true;
+				continue;
+			}
+
+			stringstream lineStream(templine);
+			int ind;
+			double x;
+			double y;
+			if (!(lineStream >> ind >> x >> y)) {
+				throw runtime_error("Malformed coordinate line in instance file: " + filename);
+			}
+
+			coordinateEntries.push_back(make_pair(ind, make_pair(x, y)));
+			maxCoordinateIndex = max(maxCoordinateIndex, ind);
+			continue;
+		}
+
+		if (readingDemand) {
+			if (templine.find("STATIONS_COORD_SECTION") != string::npos ||
+				templine.find("DEPOT_SECTION") != string::npos ||
+				templine == "EOF") {
+				readingDemand = false;
+				continue;
+			}
+
+			stringstream lineStream(templine);
+			int ind;
+			double c;
+			if (!(lineStream >> ind >> c)) {
+				throw runtime_error("Malformed demand line in instance file: " + filename);
+			}
+
+			demandEntries.push_back(make_pair(ind, c));
+			maxDemandIndex = max(maxDemandIndex, ind);
+			continue;
+		}
+
 		if (templine.find("DIMENSION:") != string::npos) {
-			string substr = templine.substr(templine.find(":") + 1);
-			ss << substr;
-			ss >> this->customerNumber;
-			ss.clear();
-			this->customerNumber--;
+			stringstream valueStream(valueAfterColon(templine));
+			valueStream >> declaredDimension;
 		}
 		else if (templine.find("STATIONS:") != string::npos) {
-			string substr = templine.substr(templine.find(":") + 1);
-			ss << substr;
-			ss >> this->stationNumber;
-			ss.clear();
+			stringstream valueStream(valueAfterColon(templine));
+			valueStream >> declaredStations;
 		}
 		else if (templine.find("VEHICLES:") != string::npos) {
-			string substr = templine.substr(templine.find(":") + 1);
-			ss << substr;
-			ss >> this->vehicleNumber;
-			ss.clear();
+			stringstream valueStream(valueAfterColon(templine));
+			valueStream >> this->vehicleNumber;
 		}
 		else if (templine.find("CAPACITY:") != string::npos && templine.find("ENERGY") == string::npos) {
-			string substr = templine.substr(templine.find(":") + 1);
-			ss << substr;
-			ss >> this->maxC;
-			ss.clear();
+			stringstream valueStream(valueAfterColon(templine));
+			valueStream >> this->maxC;
 		}
 		else if (templine.find("ENERGY_CAPACITY:") != string::npos) {
-			string substr = templine.substr(templine.find(":") + 1);
-			ss << substr;
-			ss >> this->maxQ;
-			ss.clear();
+			stringstream valueStream(valueAfterColon(templine));
+			valueStream >> this->maxQ;
 		}
 		else if (templine.find("ENERGY_CONSUMPTION:") != string::npos) {
-			string substr = templine.substr(templine.find(":") + 1);
-			ss << substr;
-			ss >> this->conR;
-			ss.clear();
+			stringstream valueStream(valueAfterColon(templine));
+			valueStream >> this->conR;
 		}
 		else if (templine.find("NODE_COORD_SECTION") != string::npos) {
-			int totalNumber = depotNumber + customerNumber + stationNumber;
-			for (int i = 0; i < totalNumber; i++) {
-				positions.push_back(make_pair(0, 0));
-			}
-			for (int i = 0; i < totalNumber; i++) {
-				infile.getline(line, 249);
-				templine = line;
-				ss << templine;
-				int ind;
-				double x, y;
-				ss >> ind >> x >> y;
-				ss.clear();
-				positions[ind - 1].first = x;
-				positions[ind - 1].second = y;
-			}
+			readingCoordinates = true;
 		}
 		else if (templine.find("DEMAND_SECTION") != string::npos) {
-			int totalNumber = depotNumber + customerNumber;
-			for (int i = 0; i < totalNumber; i++) {
-				demand.push_back(0);
-			}
-			for (int i = 0; i < totalNumber; i++) {
-				infile.getline(line, 249);
-				templine = line;
-				ss << templine;
-				int ind;
-				double c;
-				ss >> ind >> c;
-				ss.clear();
-				demand[ind - 1] = c;
-				if (c == 0) {
-					depot = ind - 1;
-				}
-			}
+			readingDemand = true;
 		}
 	}
+
+	if (coordinateEntries.empty() || demandEntries.empty()) {
+		throw runtime_error("Missing coordinate or demand section in instance file: " + filename);
+	}
+
+	const int parsedTotalNumber = maxCoordinateIndex;
+	const int depotAndCustomerCount = maxDemandIndex;
+	this->customerNumber = depotAndCustomerCount - this->depotNumber;
+	this->stationNumber = parsedTotalNumber - depotAndCustomerCount;
+
+	if (this->customerNumber < 0 || this->stationNumber < 0) {
+		throw runtime_error("Inconsistent node counts in instance file: " + filename);
+	}
+	if (declaredStations > 0 && declaredStations != this->stationNumber) {
+		throw runtime_error("Station count mismatch in instance file: " + filename);
+	}
+	if (declaredDimension > 0 &&
+		declaredDimension != depotAndCustomerCount &&
+		declaredDimension != parsedTotalNumber) {
+		throw runtime_error("Unsupported DIMENSION definition in instance file: " + filename);
+	}
+
+	this->positions.assign(parsedTotalNumber, make_pair(0.0, 0.0));
+	for (const auto& entry : coordinateEntries) {
+		this->positions[entry.first - 1] = entry.second;
+	}
+
+	this->demand.assign(depotAndCustomerCount, 0);
+	for (const auto& entry : demandEntries) {
+		this->demand[entry.first - 1] = entry.second;
+		if (entry.second == 0) {
+			this->depot = entry.first - 1;
+		}
+	}
+
+	if (this->conR <= 0) {
+		throw runtime_error("Invalid energy consumption in instance file: " + filename);
+	}
+
 	int totalNumber = depotNumber + customerNumber + stationNumber;
 	this->distances = new double* [totalNumber];
 	for (int i = 0; i < totalNumber; i++) {

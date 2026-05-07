@@ -14,9 +14,9 @@ CACO::CACO(Case* instance, int seed, int stp, int isCan, int isRA, int represent
 	this->antno = this->cdnumber;
 	ants.reserve(this->antno);
 	for (int i = 0; i < this->antno; i++) {
-		this->ants.push_back(new Ant(instance->vehicleNumber * 2, cdnumber));
+		this->ants.push_back(new Ant(instance->vehicleNumber * 2, cdnumber + 1));
 	}
-    bestSolution = new Ant(instance->vehicleNumber * 2, cdnumber);
+    bestSolution = new Ant(instance->vehicleNumber * 2, cdnumber + 1);
 	this->pher = new double*[cdnumber];
 	for (int i = 0; i < cdnumber; i++) {
 		this->pher[i] = new double[cdnumber];
