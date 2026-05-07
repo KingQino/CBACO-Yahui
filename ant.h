@@ -41,6 +41,43 @@ public:
 		delete[] this->nodeNum;
 		delete[] this->circle;
 	}
+	void ensureRouteCapacity(int requiredRouteCount) {
+		if (requiredRouteCount <= this->routeCap) {
+			return;
+		}
+
+		int newRouteCap = this->routeCap;
+		while (newRouteCap < requiredRouteCount) {
+			newRouteCap *= 2;
+		}
+
+		int** newRoute = new int* [newRouteCap];
+		double* newDemsum = new double[newRouteCap];
+		int* newNodeNum = new int[newRouteCap];
+
+		for (int i = 0; i < newRouteCap; i++) {
+			if (i < this->routeCap) {
+				newRoute[i] = this->route[i];
+				newDemsum[i] = this->demsum[i];
+				newNodeNum[i] = this->nodeNum[i];
+			}
+			else {
+				newRoute[i] = new int[this->nodeCap];
+				memset(newRoute[i], 0, sizeof(int) * this->nodeCap);
+				newDemsum[i] = 0;
+				newNodeNum[i] = 0;
+			}
+		}
+
+		delete[] this->route;
+		delete[] this->demsum;
+		delete[] this->nodeNum;
+
+		this->route = newRoute;
+		this->demsum = newDemsum;
+		this->nodeNum = newNodeNum;
+		this->routeCap = newRouteCap;
+	}
 	void reset() {
 		memset(this->nodeNum, 0, sizeof(int) * routeCap);
 		memset(this->demsum, 0, sizeof(double) * routeCap);
@@ -48,6 +85,7 @@ public:
 		routeNum = 0;
 	}
 	void copyASolutionIntoAnt(vector<vector<int>>& as, double afit, double* dem) {
+		this->ensureRouteCapacity((int)as.size());
 		this->fit = afit;
 		this->routeNum = (int)as.size();
 		for (int i = 0; i < (int)as.size(); i++) {

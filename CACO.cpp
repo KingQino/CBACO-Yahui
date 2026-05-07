@@ -109,6 +109,7 @@ void CACO::generateASolutionGreedy(Ant* anant) {
 	while (!remain.empty())
 	{
 		int routeindex = anant->routeNum;
+		anant->ensureRouteCapacity(routeindex + 1);
 		if (anant->nodeNum[routeindex] == 0) {
 			anant->route[routeindex][0] = 0;
 			anant->nodeNum[routeindex]++;
@@ -139,6 +140,7 @@ void CACO::generateASolutionGreedy(Ant* anant) {
 			}
 		}
 	}
+	anant->ensureRouteCapacity(anant->routeNum + 1);
 	anant->route[anant->routeNum][anant->nodeNum[anant->routeNum]] = 0;
 	anant->nodeNum[anant->routeNum]++;
 	anant->demsum[anant->routeNum] = loadofroute;
@@ -264,6 +266,7 @@ void CACO::buildSolutions() {
 		while (!alltemp.empty())
 		{
 			int routeindex = ants[i]->routeNum;
+			ants[i]->ensureRouteCapacity(routeindex + 1);
 			if (ants[i]->nodeNum[routeindex] == 0) {
 				ants[i]->route[routeindex][0] = 0;
 				ants[i]->nodeNum[routeindex]++;
@@ -311,6 +314,7 @@ void CACO::buildSolutions() {
 				}
 			}
 		}
+		ants[i]->ensureRouteCapacity(ants[i]->routeNum + 1);
 		ants[i]->route[ants[i]->routeNum][ants[i]->nodeNum[ants[i]->routeNum]] = 0;
 		ants[i]->nodeNum[ants[i]->routeNum]++;
 		ants[i]->demsum[ants[i]->routeNum] = loadofOneRoute;
@@ -334,6 +338,7 @@ void CACO::buildSolutionsFromCandi() {
 		while (remain > 0)
 		{
 			int routeindex = ants[i]->routeNum;
+			ants[i]->ensureRouteCapacity(routeindex + 1);
 			if (ants[i]->nodeNum[routeindex] == 0) {
 				ants[i]->route[routeindex][0] = 0;
 				ants[i]->nodeNum[routeindex]++;
@@ -403,6 +408,7 @@ void CACO::buildSolutionsFromCandi() {
 				}
 			}
 		}
+		ants[i]->ensureRouteCapacity(ants[i]->routeNum + 1);
 		ants[i]->route[ants[i]->routeNum][ants[i]->nodeNum[ants[i]->routeNum]] = 0;
 		ants[i]->nodeNum[ants[i]->routeNum]++;
 		ants[i]->demsum[ants[i]->routeNum] = loadofOneRoute;

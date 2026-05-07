@@ -599,6 +599,7 @@ void prinsSplitAnt(Ant* x, Case* instance) {
 	while (true)
 	{
 		int i = pp[j];
+		x->ensureRouteCapacity(curR + 1);
 		x->route[curR][0] = 0;
 		int routelength = 1;
 		double loadf = 0;
