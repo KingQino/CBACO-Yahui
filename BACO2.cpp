@@ -37,7 +37,12 @@ BACO2::BACO2(Case* instance, int seed, int stp) {
 	for (int i = 0; i < (int)solution.size(); i++) {
 		pair<vector<int>, double> xx = insertStationByRemove(solution[i], instance);
 		solution[i] = xx.first;
-		this->gbestf += xx.second;
+		if (xx.second < 0) {
+			this->gbestf += 9999999;
+		}
+		else {
+			this->gbestf += xx.second;
+		}
 	}
 	for (auto a : solution) {
 		for (auto b : a) {
